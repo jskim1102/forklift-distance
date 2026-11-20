@@ -120,6 +120,9 @@ export default function CamerasPage({ onCalibrate }: Props) {
   const [formOpen, setFormOpen] = useState(false);
   const [editCam, setEditCam] = useState<Cam | null>(null);
   const [error, setError] = useState("");
+  // 카메라별 remount epoch — RTSP 변경 편집 성공 시 bump(→ CameraGrid key 변경 → 셀 remount).
+  // 응답 rtsp_url 은 마스킹(:***@)이라 비번-only 변경을 서버 응답으론 못 잡으므로 이 신호를 쓴다.
+  const [playerEpoch, setPlayerEpoch] = useState<Record<number, number>>({});
   const [autoMeasurements, setAutoMeasurements] = useState<Record<string, AutoMeasurement>>(
     loadStoredMeasurements,
   );
@@ -196,12 +199,20 @@ export default function CamerasPage({ onCalibrate }: Props) {
   // register-time ffprobe 로 수 초 걸릴 수 있어, 호출측(모달)이 await 하며 로딩상태를 보인다.
   async function handleSave(name: string, rtspUrl: string): Promise<string | null> {
     if (editCam) {
+      // 사용자가 입력한 url 이 기존값(마스킹 :***@ 포함)과 다르면 스트림 변경(비번·주소 등).
+      // 이름만 바꾼 편집은 여기서 false → remount 하지 않는다(불필요한 WHEP 재연결/깜빡임 방지).
+      const urlChanged = rtspUrl !== editCam.rtsp_url;
       const resp = await fetch(`${apiBase()}/api/ipcams/${editCam.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, rtsp_url: rtspUrl }),
       });
       if (!resp.ok) return "카메라 수정에 실패했습니다.";
+      // RTSP 변경 성공 시에만 셀 remount 신호 bump(비번-only 편집도 새 자격증명으로 WHEP 재연결).
+      if (urlChanged) {
+        const id = editCam.id;
+        setPlayerEpoch((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
+      }
     } else {
       const resp = await fetch(`${apiBase()}/api/ipcams`, {
         method: "POST",
@@ -657,7 +668,12 @@ export default function CamerasPage({ onCalibrate }: Props) {
             <span className="badge none">{cams.length} CH</span>
           </div>
           <div className="live-grid-body">
-            <CameraGrid cams={cams} onFps={handleFps} autoMeasurements={weights == null ? {} : autoMeasurements} />
+            <CameraGrid
+              cams={cams}
+              onFps={handleFps}
+              autoMeasurements={weights == null ? {} : autoMeasurements}
+              epochs={playerEpoch}
+            />
           </div>
         </section>
       </div>

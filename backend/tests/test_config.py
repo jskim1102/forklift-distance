@@ -112,3 +112,11 @@ def test_streaming_core_logs_follow_app_logging(monkeypatch):
     assert logging.getLogger("rtsp-streaming").handlers
     assert logging.getLogger("rtsp-streaming.streaming.manager").isEnabledFor(logging.INFO)
     assert config.logger.isEnabledFor(logging.INFO)
+
+
+def test_inference_logs_follow_app_logging(monkeypatch):
+    """추론 코드는 모듈 이름(app.*)과 inference.worker.* 로 로그를 남긴다 — 앱 로거만 켜면 그 INFO 가 조용히 사라진다."""
+    _reload_config(monkeypatch, LOG_LEVEL="INFO")
+    for name in ("app.inference.worker", "inference.worker.yolo26n.pt"):
+        assert logging.getLogger(name).isEnabledFor(logging.INFO)
+        assert logging.getLogger(name.split(".")[0]).handlers

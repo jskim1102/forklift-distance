@@ -101,12 +101,14 @@ def setup_logging() -> logging.Logger:
         )
         logger.addHandler(handler)
 
-    # 스트리밍 코어(capture · manager)는 rtsp-streaming.* 이름으로 로그를 남긴다 — 같은 수준 · 출력으로 켜야 그 INFO 가 보인다
-    core = logging.getLogger("rtsp-streaming")
-    core.setLevel(logger.level)
-    if not core.handlers:
-        for h in logger.handlers:
-            core.addHandler(h)
+    # 앱 로거 밖 이름으로 로그를 남기는 코드도 같은 수준 · 출력으로 켜야 그 INFO 가 보인다 —
+    # 스트리밍 코어(capture · manager)는 rtsp-streaming.*, 추론(worker 등)은 모듈 이름 app.* 과 모델별 inference.worker.*
+    for name in ("rtsp-streaming", "app", "inference"):
+        core = logging.getLogger(name)
+        core.setLevel(logger.level)
+        if not core.handlers:
+            for h in logger.handlers:
+                core.addHandler(h)
 
     return logger
 

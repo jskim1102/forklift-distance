@@ -24,6 +24,8 @@ interface Props {
   cams: Cam[];
   onFps?: (streamKey: string, fps: number) => void;
   autoMeasurements?: Record<string, AutoMeasurement>;
+  // 카메라별 remount epoch(부모가 RTSP 변경 편집마다 bump) — GridCell key 에 넣어 셀 remount 트리거.
+  epochs?: Record<number, number>;
 }
 
 // 셀 = WhepPlayer(WebRTC) + 거리측정 토글(calibration 완료 카메라만 enable).
@@ -107,7 +109,7 @@ function GridCell({
   );
 }
 
-export default function CameraGrid({ cams, onFps, autoMeasurements = {} }: Props) {
+export default function CameraGrid({ cams, onFps, autoMeasurements = {}, epochs }: Props) {
   // 카메라별 calibration — GET. homography + enabled(측정 표시 on/off gate). null=미설정.
   const [calibs, setCalibs] = useState<Record<string, Calib>>({});
   // 거리측정 focus 대상 카메라(null=닫힘).
@@ -165,8 +167,10 @@ export default function CameraGrid({ cams, onFps, autoMeasurements = {} }: Props
         {cams.map((cam) => {
           const calib = calibs[cam.stream_key];
           return (
+            // key 에 epoch 포함 — 부모가 RTSP 변경 편집 시 bump → 셀 remount → WHEP 재연결.
+            // (응답 rtsp_url 은 마스킹이라 비번-only 변경을 못 잡아 key 재료로 부족하다.)
             <GridCell
-              key={`${cam.id}:${cam.rtsp_url}`}
+              key={`${cam.id}-${epochs?.[cam.id] ?? 0}`}
               cam={cam}
               onFps={onFps}
               homography={calib ? measurableHomography(calib.enabled, calib.homography) : null}

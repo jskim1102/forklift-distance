@@ -6,6 +6,7 @@ config 는 import 시점에 env 를 읽으므로, env 를 세팅하고 importlib
 """
 
 import importlib
+import logging
 import os
 import subprocess
 import sys
@@ -103,3 +104,11 @@ for lane in ("anchor", "target"):
     assert Path(models_dir.resolve_model_path(lane)) == config.YOLO_WEIGHTS_DIR / "yolo26s.pt"
 """
     subprocess.run([sys.executable, "-c", check_lanes], check=True, cwd=backend, env=env)
+
+
+def test_streaming_core_logs_follow_app_logging(monkeypatch):
+    """스트리밍 코어(capture · manager)는 rtsp-streaming.* 이름을 쓴다 — 앱 로거만 켜면 그 INFO 가 조용히 사라진다."""
+    config = _reload_config(monkeypatch, LOG_LEVEL="INFO")
+    assert logging.getLogger("rtsp-streaming").handlers
+    assert logging.getLogger("rtsp-streaming.streaming.manager").isEnabledFor(logging.INFO)
+    assert config.logger.isEnabledFor(logging.INFO)

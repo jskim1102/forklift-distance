@@ -14,7 +14,6 @@ services:
   backend:
     build:
       context: ./backend
-    image: ghcr.io/jskim1102/forklift-distance-backend:latest
     container_name: forklift-distance-backend
     environment:
       CORS_ORIGINS: ${CORS_ORIGINS:-}
